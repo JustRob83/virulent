@@ -17,6 +17,13 @@
 #include "ch.h"
 #include "hal.h"
 #include "test.h"
+#include "pwmdetail.h"
+
+const int BLUETEAM = 0;
+const int GREENTEAM = 1;
+const int REDTEAM = 2;
+
+int DefaultTeam = 0;
 
 /*
  * Blue LED blinker thread, times are in milliseconds.
@@ -50,6 +57,49 @@ static msg_t Thread2(void *arg) {
   }
 }
 
+static void extcb1(EXTDriver *extp, expchannel_t channel) {
+  static VirtualTimer vt4;
+
+  (void)extp;
+  (void)channel;
+
+
+  if(chVTIsArmedI(&vt4))
+	chVTResetI(&vt4);
+
+  /* LED4 set to OFF after 500mS.*/
+//  chVTSetI(&vt4, MS2ST(500), green_led_off, NULL);
+  chSysUnlockFromIsr();
+}
+
+static const EXTConfig extcfg = {
+  {
+    {EXT_CH_MODE_RISING_EDGE | EXT_CH_MODE_AUTOSTART | EXT_MODE_GPIOA, extcb1},   //
+    {EXT_CH_MODE_DISABLED, NULL},
+    {EXT_CH_MODE_DISABLED, NULL},
+    {EXT_CH_MODE_DISABLED, NULL},
+    {EXT_CH_MODE_DISABLED, NULL},
+    {EXT_CH_MODE_DISABLED, NULL},
+    {EXT_CH_MODE_DISABLED, NULL},
+    {EXT_CH_MODE_DISABLED, NULL},
+    {EXT_CH_MODE_DISABLED, NULL},
+    {EXT_CH_MODE_DISABLED, NULL},
+    {EXT_CH_MODE_DISABLED, NULL},
+    {EXT_CH_MODE_DISABLED, NULL},
+    {EXT_CH_MODE_DISABLED, NULL},
+    {EXT_CH_MODE_DISABLED, NULL},
+    {EXT_CH_MODE_DISABLED, NULL},
+    {EXT_CH_MODE_DISABLED, NULL},
+    {EXT_CH_MODE_DISABLED, NULL},
+    {EXT_CH_MODE_DISABLED, NULL},
+    {EXT_CH_MODE_DISABLED, NULL},
+    {EXT_CH_MODE_DISABLED, NULL},
+    {EXT_CH_MODE_DISABLED, NULL},
+    {EXT_CH_MODE_DISABLED, NULL},
+    {EXT_CH_MODE_DISABLED, NULL}
+  }
+};
+
 /*
  * Application entry point.
  */
@@ -73,6 +123,21 @@ int main(void) {
   palSetPadMode(GPIOA, 9, PAL_MODE_ALTERNATE(1));       /* USART1 TX.       */
   palSetPadMode(GPIOA, 10, PAL_MODE_ALTERNATE(1));      /* USART1 RX.       */
 
+  // Configure pin for PWM output (A1: TIM2, channel 2)
+  palSetPadMode(GPIOA, GPIOA_PIN1, PAL_MODE_ALTERNATE(2));	//Modulation Freq Out
+
+  //TODO Read Default Team Pins
+
+  //Set Initial Team
+  if(DefaultTeam == REDTEAM)
+	  pwmStart(&PWMD2, &pwmcfg2);
+  else if(DefaultTeam == GREENTEAM)
+	  pwmStart(&PWMD2, &pwmcfg3);
+  else	//Blue Team
+	  pwmStart(&PWMD2, &pwmcfg5);
+
+  pwmEnableChannel(&PWMD2, 1, PWM_PERCENTAGE_TO_WIDTH(&PWMD2, 5000));
+
   /*
    * Creates the blinker threads.
    */
@@ -86,8 +151,8 @@ int main(void) {
    * driver 1.
    */
   while (TRUE) {
-    if (palReadPad(GPIOA, GPIOA_BUTTON))
-      TestThread(&SD1);
+	if (palReadPad(GPIOA, GPIOA_BUTTON))
+		TestThread(&SD1);
     chThdSleepMilliseconds(500);
   }
 }
