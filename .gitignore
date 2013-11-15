@@ -32,6 +32,10 @@
 *.sql
 *.sqlite
 
+# Folders #
+#######################
+build
+
 # OS generated files #
 ######################
 .DS_Store
