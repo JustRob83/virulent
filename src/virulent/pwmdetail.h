@@ -9,12 +9,12 @@
 #include "ch.h"
 #include "hal.h"
 
-#define RED_PERIOD		500
-#define GREEN_PERIOD	333
-#define BLUE_PERIOD		200
+#define RED_PERIOD	1504
+#define GREEN_PERIOD	875
+#define BLUE_PERIOD	586
 
-extern PWMConfig pwmcfg2;
-extern PWMConfig pwmcfg3;
-extern PWMConfig pwmcfg5;
+extern PWMConfig pwmcfgRed;
+extern PWMConfig pwmcfgGreen;
+extern PWMConfig pwmcfgBlue;
 
 #endif
