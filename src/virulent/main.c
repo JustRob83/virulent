@@ -16,23 +16,26 @@
 
 #include "ch.h"
 #include "hal.h"
-#include "test.h"
 #include "pwmdetail.h"
 #include "board.h"
 
 //STM32F0-DISCOVERY Board Assignments
-//#ifdef BOARD_ST_STM32F0_DISCOVERY
+#ifdef BOARD_ST_STM32F0_DISCOVERY
 
-#define GPIO_TEAMID0           	GPIOA_PIN9
-#define GPIO_TEAMID1    	GPIOA_PIN10
+#define GPIO_TEAMID0            GPIOA_PIN11
+#define GPIO_TEAMID1            GPIOA_PIN12
 #define GPIO_MOD_FREQ		GPIOA_PIN3
 #define GPIO_TX                 GPIOA_PIN4
-#define GPIO_RED_LED		GPIOB_PIN3
-#define GPIO_GREEN_LED		GPIOB_PIN1
-#define GPIO_BLUE_LED		GPIOB_PIN4
-//TODO Add GPIO_TX
 
-//#endif
+#define GPIO_RED_LED		GPIOA_PIN6
+#define GPIO_GREEN_LED		GPIOA_PIN7
+#define GPIO_BLUE_LED		GPIOA_PIN5
+
+#define GPIO_RED_PLL            GPIOB_PIN5
+#define GPIO_GREEN_PLL          GPIOB_PIN6
+#define GPIO_BLUE_PLL           GPIOB_PIN7
+
+#endif
 
 static void transmit_unlock(GPTDriver *gptp);
 static void transmit_stop(GPTDriver *gptp);
@@ -42,13 +45,13 @@ static void extPLLG(EXTDriver *extp, expchannel_t channel);
 static void extPLLB(EXTDriver *extp, expchannel_t channel);
 
 static const GPTConfig gpt1cfg = {
-  100000,			//100kHz timer frequency
+  1000,			//1kHz timer frequency
   transmit_stop,
   0
 };
 
 static const GPTConfig gpt3cfg = {
-  100000,			//100kHz timer frequency
+  1000,			//1kHz timer frequency
   transmit_unlock,
   0
 };
@@ -58,9 +61,10 @@ const int GREENTEAM = 1;
 const int REDTEAM = 2;
 
 const int TRANSMIT_TIME = 1000;         //Transmit time in milliseconds.
-const int TRANSMIT_LOCKOUT = 5000;      //Transmit lockout time in milliseconds.
+const int TRANSMIT_LOCKOUT = 4000;      //Transmit lockout time in milliseconds.
 
 static int DefaultTeam = 0;             //
+static int CurrentTeam = 0;
 
 
 /*
@@ -231,29 +235,46 @@ int main(void) {
   palSetPadMode(GPIOA, 9, PAL_MODE_ALTERNATE(1));       /* USART1 TX.       */
   palSetPadMode(GPIOA, 10, PAL_MODE_ALTERNATE(1));      /* USART1 RX.       */
 
-
   //Configure Default Team Input Pins
-  palSetPadMode(GPIOA, GPIO_TEAMID0, PAL_MODE_INPUT);
-  palSetPadMode(GPIOA, GPIO_TEAMID1, PAL_MODE_INPUT);
+  palSetPadMode(GPIOA, GPIO_TEAMID0, PAL_MODE_INPUT_PULLDOWN);
+  palSetPadMode(GPIOA, GPIO_TEAMID1, PAL_MODE_INPUT_PULLDOWN);
 
-  //Read Default Team Pins, set DefaultTeam
-  DefaultTeam = (palReadPad(GPIOA, GPIO_TEAMID0) + palReadPad(GPIOA, GPIO_TEAMID1));
+  //Configure pins for TeamID LED's
+  palSetPadMode(GPIOA, GPIO_RED_LED, PAL_MODE_OUTPUT_PUSHPULL);         //Red Team LED
+  palSetPadMode(GPIOA, GPIO_GREEN_LED, PAL_MODE_OUTPUT_PUSHPULL);	//Green Team LED
+  palSetPadMode(GPIOA, GPIO_BLUE_LED, PAL_MODE_OUTPUT_PUSHPULL);	//Blue Team LED
+
+  //Configure pins for PLL's
+  palSetPadMode(GPIOB, GPIO_RED_PLL, PAL_MODE_INPUT);         //Red Team PLL
+  palSetPadMode(GPIOB, GPIO_GREEN_PLL, PAL_MODE_INPUT);       //Green Team PLL
+  palSetPadMode(GPIOB, GPIO_BLUE_PLL, PAL_MODE_INPUT);        //Blue Team PLL
 
   // Configure pin for PWM output (A1: TIM2, channel 4)
   palSetPadMode(GPIOA, GPIO_MOD_FREQ, PAL_MODE_ALTERNATE(2));	//Modulation Freq Out
 
-  //Configure pins for TeamID LED's
-  palSetPadMode(GPIOB, GPIO_RED_LED, PAL_MODE_OUTPUT_PUSHPULL);	//Red Team LED
-  palSetPadMode(GPIOB, GPIO_GREEN_LED, PAL_MODE_OUTPUT_PUSHPULL);	//Green Team LED
-  palSetPadMode(GPIOB, GPIO_BLUE_LED, PAL_MODE_OUTPUT_PUSHPULL);	//Blue Team LED
+  //Read Default Team Pins, set DefaultTeam
+  DefaultTeam = (palReadPad(GPIOA, GPIO_TEAMID0) + palReadPad(GPIOA, GPIO_TEAMID1));
+  CurrentTeam = DefaultTeam;
 
   //Set Initial Team
-  if(DefaultTeam == REDTEAM)
-    pwmStart(&PWMD2, &pwmcfg2);
-  else if(DefaultTeam == GREENTEAM)
-    pwmStart(&PWMD2, &pwmcfg3);
-  else	//Blue Team
-    pwmStart(&PWMD2, &pwmcfg5);
+  if(CurrentTeam == REDTEAM) {
+    pwmStart(&PWMD2, &pwmcfgRed);
+    palClearPad(GPIOA, GPIO_RED_LED);
+    palSetPad(GPIOA, GPIO_GREEN_LED);
+    palSetPad(GPIOA, GPIO_BLUE_LED);
+  }
+  else if(CurrentTeam == GREENTEAM) {
+    pwmStart(&PWMD2, &pwmcfgGreen);
+    palClearPad(GPIOA, GPIO_GREEN_LED);
+    palSetPad(GPIOA, GPIO_RED_LED);
+    palSetPad(GPIOA, GPIO_BLUE_LED);
+  }
+  else {        //Blue Team
+    pwmStart(&PWMD2, &pwmcfgBlue);
+    palClearPad(GPIOA, GPIO_BLUE_LED);
+    palSetPad(GPIOA, GPIO_RED_LED);
+    palSetPad(GPIOA, GPIO_GREEN_LED);
+  }
 
   //Enable GPT's
   gptStart(&GPTD1, &gpt1cfg);
@@ -277,7 +298,6 @@ int main(void) {
   while (TRUE) {
     //TODO Create idle loop
     if (palReadPad(GPIOA, GPIOA_BUTTON))
-      TestThread(&SD1);
     chThdSleepMilliseconds(500);
   }
 }
