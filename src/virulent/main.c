@@ -37,6 +37,10 @@
 
 #endif
 
+#define PLLR_EXTCHAN            5
+#define PLLG_EXTCHAN            6
+#define PLLB_EXTCHAN            7
+
 static void transmit_unlock(GPTDriver *gptp);
 static void transmit_stop(GPTDriver *gptp);
 static void extReset(EXTDriver *extp, expchannel_t channel);
@@ -104,10 +108,44 @@ static void extReset(EXTDriver *extp, expchannel_t channel) {
   (void)extp;
   (void)channel;
 
-  //TODO Change PWM frequency based on DefaultTeam
-  pwmChangePeriodI(&PWMD2, RED_PERIOD);
+  CurrentTeam = DefaultTeam;
 
-  //TODO Turn on appropriate team LED
+  //Turn on appropriate team LED
+  if(CurrentTeam == REDTEAM) {
+    //Disable further PLLR interrupts
+    extChannelDisableI(&EXTD1, PLLR_EXTCHAN);
+    //Enable PLLG, PLLB interrupts
+    extChannelEnableI(&EXTD1, PLLG_EXTCHAN);
+    extChannelEnableI(&EXTD1, PLLB_EXTCHAN);
+    pwmChangePeriodI(&PWMD2, RED_PERIOD);
+    palClearPad(GPIOA, GPIO_RED_LED);
+    palSetPad(GPIOA, GPIO_GREEN_LED);
+    palSetPad(GPIOA, GPIO_BLUE_LED);
+  }
+  else if(CurrentTeam == GREENTEAM) {
+    //Disable further PLLG interrupts
+    extChannelDisableI(&EXTD1, PLLG_EXTCHAN);
+    //Enable PLLR, PLLB interrupts
+    extChannelEnableI(&EXTD1, PLLR_EXTCHAN);
+    extChannelEnableI(&EXTD1, PLLB_EXTCHAN);
+    pwmChangePeriodI(&PWMD2, GREEN_PERIOD);
+    palClearPad(GPIOA, GPIO_GREEN_LED);
+    palSetPad(GPIOA, GPIO_RED_LED);
+    palSetPad(GPIOA, GPIO_BLUE_LED);
+  }
+  else {        //Blue Team
+    //Disable further PLLB interrupts
+    extChannelDisableI(&EXTD1, PLLB_EXTCHAN);
+    //Enable PLLG, PLLR interrupts
+    extChannelEnableI(&EXTD1, PLLG_EXTCHAN);
+    extChannelEnableI(&EXTD1, PLLR_EXTCHAN);
+    pwmChangePeriodI(&PWMD2, BLUE_PERIOD);
+    palClearPad(GPIOA, GPIO_BLUE_LED);
+    palSetPad(GPIOA, GPIO_RED_LED);
+    palSetPad(GPIOA, GPIO_GREEN_LED);
+  }
+
+  chSysUnlockFromIsr();
 }
 
 static void extPLLR(EXTDriver *extp, expchannel_t channel) {
@@ -115,10 +153,20 @@ static void extPLLR(EXTDriver *extp, expchannel_t channel) {
   (void)extp;
   (void)channel;
 
-  //TODO Change PWM frequency to PLLR Frequency
-  pwmChangePeriodI(&PWMD2, RED_PERIOD);
+  //Disable further PLLR interrupts
+  extChannelDisableI(&EXTD1, PLLR_EXTCHAN);
+  //Enable PLLG, PLLB interrupts
+  extChannelEnableI(&EXTD1, PLLG_EXTCHAN);
+  extChannelEnableI(&EXTD1, PLLB_EXTCHAN);
 
-  //TODO Turn on Red LED, turn off Blue, Green LED's
+  //Change PWM frequency to PLLR Frequency
+  pwmChangePeriodI(&PWMD2, RED_PERIOD);
+  //Turn on Red LED, turn off Green, Blue LED's
+  palClearPad(GPIOA, GPIO_RED_LED);
+  palSetPad(GPIOA, GPIO_GREEN_LED);
+  palSetPad(GPIOA, GPIO_BLUE_LED);
+
+  chSysUnlockFromIsr();
 }
 
 static void extPLLG(EXTDriver *extp, expchannel_t channel) {
@@ -126,10 +174,20 @@ static void extPLLG(EXTDriver *extp, expchannel_t channel) {
   (void)extp;
   (void)channel;
 
-  //TODO Change PWM frequency to PLLG Frequency
-  pwmChangePeriodI(&PWMD2, GREEN_PERIOD);
+  //Disable further PLLG interrupts
+  extChannelDisableI(&EXTD1, PLLG_EXTCHAN);
+  //Enable PLLR, PLLB interrupts
+  extChannelEnableI(&EXTD1, PLLR_EXTCHAN);
+  extChannelEnableI(&EXTD1, PLLB_EXTCHAN);
 
-  //TODO Turn on Green LED, turn off Blue, Red LED's
+  //Change PWM frequency to PLLG Frequency
+  pwmChangePeriodI(&PWMD2, GREEN_PERIOD);
+  //Turn on Green LED, turn off Red, Blue LED's
+  palClearPad(GPIOA, GPIO_GREEN_LED);
+  palSetPad(GPIOA, GPIO_RED_LED);
+  palSetPad(GPIOA, GPIO_BLUE_LED);
+
+  chSysUnlockFromIsr();
 }
 
 static void extPLLB(EXTDriver *extp, expchannel_t channel) {
@@ -137,10 +195,20 @@ static void extPLLB(EXTDriver *extp, expchannel_t channel) {
   (void)extp;
   (void)channel;
 
-  //TODO Change PWM frequency to PLLB Frequency
-  pwmChangePeriodI(&PWMD2, BLUE_PERIOD);
+  //Disable further PLLB interrupts
+  extChannelDisableI(&EXTD1, PLLB_EXTCHAN);
+  //Enable PLLG, PLLR interrupts
+  extChannelEnableI(&EXTD1, PLLG_EXTCHAN);
+  extChannelEnableI(&EXTD1, PLLR_EXTCHAN);
 
-  //TODO Turn on Blue LED, turn off Red, Green LED's
+  //Change PWM frequency to PLLB Frequency
+  pwmChangePeriodI(&PWMD2, BLUE_PERIOD);
+  //Turn on Blue LED, turn off Red, Green LED's
+  palClearPad(GPIOA, GPIO_BLUE_LED);
+  palSetPad(GPIOA, GPIO_GREEN_LED);
+  palSetPad(GPIOA, GPIO_RED_LED);
+
+  chSysUnlockFromIsr();
 }
 
 static void transmit_unlock(GPTDriver *gptp) {
@@ -158,7 +226,7 @@ static void transmit_stop(GPTDriver *gptp) {
 
   //Stop transmitting
   pwmDisableChannel(&PWMD2, 3);
-  palClearPad(GPIOA, GPIO_TX);
+  palSetPad(GPIOA, GPIO_TX);
 
   chSysUnlockFromIsr();
 }
@@ -171,7 +239,7 @@ static void extTransmit(EXTDriver *extp, expchannel_t channel) {
 
   //Start transmitting
   pwmEnableChannel(&PWMD2, 3, PWM_PERCENTAGE_TO_WIDTH(&PWMD2, 5000));
-  palSetPad(GPIOA, GPIO_TX);
+  palClearPad(GPIOA, GPIO_TX);
 
  //Disable Transmit interrupt and start timer to reenable
   extChannelDisableI(&EXTD1, 0);                   //Disable transmit interrupt
@@ -251,6 +319,9 @@ int main(void) {
 
   // Configure pin for PWM output (A1: TIM2, channel 4)
   palSetPadMode(GPIOA, GPIO_MOD_FREQ, PAL_MODE_ALTERNATE(2));	//Modulation Freq Out
+  //Configure pin for RX Enable
+  palSetPadMode(GPIOA, GPIO_TX, PAL_MODE_OUTPUT_PUSHPULL);
+
 
   //Read Default Team Pins, set DefaultTeam
   DefaultTeam = (palReadPad(GPIOA, GPIO_TEAMID0) + palReadPad(GPIOA, GPIO_TEAMID1));
