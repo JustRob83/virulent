@@ -24,8 +24,12 @@
 
 #define GPIO_TEAMID0            GPIOA_PIN11
 #define GPIO_TEAMID1            GPIOA_PIN12
+
+#define GPIO_SW_RESET           GPIOA_PIN4
+#define GPIO_5V_ENABLE          GPIOA_PIN1
 #define GPIO_MOD_FREQ		GPIOA_PIN3
-#define GPIO_TX                 GPIOA_PIN4
+#define GPIO_RX                 GPIOA_PIN2
+#define GPIO_TRIGGER            GPIOA_BUTTON
 
 #define GPIO_RED_LED		GPIOA_PIN6
 #define GPIO_GREEN_LED		GPIOA_PIN7
@@ -71,37 +75,37 @@ static int DefaultTeam = 0;             //
 static int CurrentTeam = 0;
 
 
-/*
- * Blue LED blinker thread, times are in milliseconds.
- */
-static WORKING_AREA(waThread1, 128);
-static msg_t Thread1(void *arg) {
+///*
+// * Blue LED blinker thread, times are in milliseconds.
+// */
+//static WORKING_AREA(waThread1, 128);
+//static msg_t Thread1(void *arg) {
+//
+//  (void)arg;
+//  chRegSetThreadName("blinker1");
+//  while (TRUE) {
+//    palClearPad(GPIOC, GPIOC_LED4);
+//    chThdSleepMilliseconds(300);
+//    palSetPad(GPIOC, GPIOC_LED4);
+//    chThdSleepMilliseconds(300);
+//  }
+//}
 
-  (void)arg;
-  chRegSetThreadName("blinker1");
-  while (TRUE) {
-    palClearPad(GPIOC, GPIOC_LED4);
-    chThdSleepMilliseconds(300);
-    palSetPad(GPIOC, GPIOC_LED4);
-    chThdSleepMilliseconds(300);
-  }
-}
-
-/*
- * Green LED blinker thread, times are in milliseconds.
- */
-static WORKING_AREA(waThread2, 128);
-static msg_t Thread2(void *arg) {
-
-  (void)arg;
-  chRegSetThreadName("blinker2");
-  while (TRUE) {
-    palClearPad(GPIOC, GPIOC_LED3);
-    chThdSleepMilliseconds(10);
-    palSetPad(GPIOC, GPIOC_LED3);
-    chThdSleepMilliseconds(30);
-  }
-}
+///*
+// * Green LED blinker thread, times are in milliseconds.
+// */
+//static WORKING_AREA(waThread2, 128);
+//static msg_t Thread2(void *arg) {
+//
+//  (void)arg;
+//  chRegSetThreadName("blinker2");
+//  while (TRUE) {
+//    palClearPad(GPIOC, GPIOC_LED3);
+//    chThdSleepMilliseconds(10);
+//    palSetPad(GPIOC, GPIOC_LED3);
+//    chThdSleepMilliseconds(30);
+//  }
+//}
 
 static void extReset(EXTDriver *extp, expchannel_t channel) {
 
@@ -226,7 +230,7 @@ static void transmit_stop(GPTDriver *gptp) {
 
   //Stop transmitting
   pwmDisableChannel(&PWMD2, 3);
-  palSetPad(GPIOA, GPIO_TX);
+  palSetPad(GPIOA, GPIO_RX);
 
   chSysUnlockFromIsr();
 }
@@ -239,12 +243,12 @@ static void extTransmit(EXTDriver *extp, expchannel_t channel) {
 
   //Start transmitting
   pwmEnableChannel(&PWMD2, 3, PWM_PERCENTAGE_TO_WIDTH(&PWMD2, 5000));
-  palClearPad(GPIOA, GPIO_TX);
+  palClearPad(GPIOA, GPIO_RX);
 
  //Disable Transmit interrupt and start timer to reenable
   extChannelDisableI(&EXTD1, 0);                   //Disable transmit interrupt
-  gptStartOneShotI(&GPTD1, TRANSMIT_TIME*100);    //Start timer for transmit
-  gptStartOneShotI(&GPTD3, TRANSMIT_LOCKOUT*100); //Start timer for transmit unlock
+  gptStartOneShotI(&GPTD1, TRANSMIT_TIME);    //Start timer for transmit
+  gptStartOneShotI(&GPTD3, TRANSMIT_LOCKOUT); //Start timer for transmit unlock
 
 
   chSysUnlockFromIsr();
@@ -252,11 +256,11 @@ static void extTransmit(EXTDriver *extp, expchannel_t channel) {
 
 static const EXTConfig extcfg = {
   {
-    {EXT_CH_MODE_FALLING_EDGE | EXT_CH_MODE_AUTOSTART | EXT_MODE_GPIOA, extReset},
     {EXT_CH_MODE_FALLING_EDGE | EXT_CH_MODE_AUTOSTART | EXT_MODE_GPIOA, extTransmit},
     {EXT_CH_MODE_DISABLED, NULL},
     {EXT_CH_MODE_DISABLED, NULL},
     {EXT_CH_MODE_DISABLED, NULL},
+    {EXT_CH_MODE_FALLING_EDGE | EXT_CH_MODE_AUTOSTART | EXT_MODE_GPIOA, extReset},
     {EXT_CH_MODE_FALLING_EDGE | EXT_CH_MODE_AUTOSTART | EXT_MODE_GPIOB, extPLLR},
     {EXT_CH_MODE_FALLING_EDGE | EXT_CH_MODE_AUTOSTART | EXT_MODE_GPIOB, extPLLG},
     {EXT_CH_MODE_FALLING_EDGE | EXT_CH_MODE_AUTOSTART | EXT_MODE_GPIOB, extPLLB},
@@ -303,6 +307,12 @@ int main(void) {
   palSetPadMode(GPIOA, 9, PAL_MODE_ALTERNATE(1));       /* USART1 TX.       */
   palSetPadMode(GPIOA, 10, PAL_MODE_ALTERNATE(1));      /* USART1 RX.       */
 
+  //Disable 5V_ENABLE for startup sequence
+  palClearPad(GPIOA, GPIO_5V_ENABLE);
+
+  //Configure pin for 5V Enable
+  palSetPadMode(GPIOA, GPIO_5V_ENABLE, PAL_MODE_OUTPUT_PUSHPULL);       //Red Team LED
+
   //Configure Default Team Input Pins
   palSetPadMode(GPIOA, GPIO_TEAMID0, PAL_MODE_INPUT_PULLDOWN);
   palSetPadMode(GPIOA, GPIO_TEAMID1, PAL_MODE_INPUT_PULLDOWN);
@@ -320,8 +330,7 @@ int main(void) {
   // Configure pin for PWM output (A1: TIM2, channel 4)
   palSetPadMode(GPIOA, GPIO_MOD_FREQ, PAL_MODE_ALTERNATE(2));	//Modulation Freq Out
   //Configure pin for RX Enable
-  palSetPadMode(GPIOA, GPIO_TX, PAL_MODE_OUTPUT_PUSHPULL);
-
+  palSetPadMode(GPIOA, GPIO_RX, PAL_MODE_OUTPUT_PUSHPULL);
 
   //Read Default Team Pins, set DefaultTeam
   DefaultTeam = (palReadPad(GPIOA, GPIO_TEAMID0) + palReadPad(GPIOA, GPIO_TEAMID1));
@@ -347,6 +356,9 @@ int main(void) {
     palSetPad(GPIOA, GPIO_GREEN_LED);
   }
 
+  //Enable 5V_ENABLE
+  palSetPad(GPIOA, GPIO_5V_ENABLE);
+
   //Enable GPT's
   gptStart(&GPTD1, &gpt1cfg);
   gptStart(&GPTD3, &gpt3cfg);
@@ -357,8 +369,8 @@ int main(void) {
   /*
    * Creates the blinker threads.
    */
-  chThdCreateStatic(waThread1, sizeof(waThread1), NORMALPRIO, Thread1, NULL);
-  chThdCreateStatic(waThread2, sizeof(waThread2), NORMALPRIO, Thread2, NULL);
+//  chThdCreateStatic(waThread1, sizeof(waThread1), NORMALPRIO, Thread1, NULL);
+//  chThdCreateStatic(waThread2, sizeof(waThread2), NORMALPRIO, Thread2, NULL);
 
   /*
    * Normal main() thread activity, in this demo it does nothing except
@@ -368,7 +380,7 @@ int main(void) {
    */
   while (TRUE) {
     //TODO Create idle loop
-    if (palReadPad(GPIOA, GPIOA_BUTTON))
+    if (palReadPad(GPIOA, GPIO_RX))
     chThdSleepMilliseconds(500);
   }
 }
