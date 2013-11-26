@@ -59,8 +59,8 @@ PROJECT = ch
 
 # Imported source files and paths
 CHIBIOS = ../..
-include ./boards/ST_STM32F0_DISCOVERY/board.mk
-#include ./boards/Virulent_Mainboard/board.mk
+#include ./boards/ST_STM32F0_DISCOVERY/board.mk
+include ./boards/Virulent_Mainboard/board.mk
 include $(CHIBIOS)/os/hal/platforms/STM32F0xx/platform.mk
 include $(CHIBIOS)/os/hal/hal.mk
 include $(CHIBIOS)/os/ports/GCC/ARMCMx/STM32F0xx/port.mk

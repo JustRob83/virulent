@@ -1,10 +1,10 @@
 *****************************************************************************
-** ChibiOS/RT port for ARM-Cortex-M0 STM32F051.                            **
+** ChibiOS/RT port for ARM-Cortex-M0 STM32F050.                            **
 *****************************************************************************
 
 ** TARGET **
 
-The demo runs on an ST STM32F0-Discovery board.
+The application runs on the Virulent V1.0 mainboard.
 
 ** The Demo **
 
@@ -20,6 +20,6 @@ different GCC toolchains.
 Some files used by the demo are not part of ChibiOS/RT but are copyright of
 ST Microelectronics and are licensed under a different license.
 Also note that not all the files present in the ST library are distributed
-with ChibiOS/RT, you can find the whole library on the ST web site:
+with ChibiOS/RT. You can find the whole library on the ST web site:
 
                              http://www.st.com
