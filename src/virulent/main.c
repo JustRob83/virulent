@@ -247,6 +247,31 @@ int main(void) {
   //Start external interrupt subsystem
   extStart(&EXTD1, &extcfg);
 
+  //Disable 5V_ENABLE for startup sequence
+  palClearPad(GPIOA, GPIO_5V_ENABLE);
+
+  //Configure pin for 5V Enable
+  palSetPadMode(GPIOA, GPIO_5V_ENABLE, PAL_MODE_OUTPUT_PUSHPULL);       //Red Team LED
+
+  //Configure Default Team Input Pins
+  palSetPadMode(GPIOA, GPIO_TEAMID0, PAL_MODE_INPUT_PULLDOWN);
+  palSetPadMode(GPIOA, GPIO_TEAMID1, PAL_MODE_INPUT_PULLDOWN);
+
+  //Configure pins for TeamID LED's
+  palSetPadMode(GPIOA, GPIO_RED_LED, PAL_MODE_OUTPUT_PUSHPULL);         //Red Team LED
+  palSetPadMode(GPIOA, GPIO_GREEN_LED, PAL_MODE_OUTPUT_PUSHPULL);	//Green Team LED
+  palSetPadMode(GPIOA, GPIO_BLUE_LED, PAL_MODE_OUTPUT_PUSHPULL);	//Blue Team LED
+
+  //Configure pins for PLL's
+  palSetPadMode(GPIOB, GPIO_RED_PLL, PAL_MODE_INPUT);         //Red Team PLL
+  palSetPadMode(GPIOB, GPIO_GREEN_PLL, PAL_MODE_INPUT);       //Green Team PLL
+  palSetPadMode(GPIOB, GPIO_BLUE_PLL, PAL_MODE_INPUT);        //Blue Team PLL
+
+  // Configure pin for PWM output (A1: TIM2, channel 4)
+  palSetPadMode(GPIOA, GPIO_MOD_FREQ, PAL_MODE_ALTERNATE(2));	//Modulation Freq Out
+  //Configure pin for RX Enable
+  palSetPadMode(GPIOA, GPIO_RX, PAL_MODE_OUTPUT_PUSHPULL);
+
   //Read Default Team Pins, set DefaultTeam
   DefaultTeam = (palReadPad(GPIOA, GPIO_TEAMID0) + palReadPad(GPIOA, GPIO_TEAMID1));
   CurrentTeam = DefaultTeam;
